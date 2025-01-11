@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web All Image Finder</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Web All Image Finder</h1>
+        <p>Download images from any website or blog post</p>
+        <div class="header-controls">
+          <button id="themeToggle" class="theme-btn">
+            <i class="fas fa-moon"></i>
+          </button>
+          <button id="settingsBtn" class="settings-btn">
+            <i class="fas fa-cog"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="url-input">
+          <input type="url" id="urlInput" placeholder="Enter URL here..." />
+        </div>
+        <button onclick="fetchImages()" class="fetch-btn">
+          <span>Fetch Images</span>
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+
+      <div class="filter-section">
+        <select class="dimension-filter" id="sizeFilter">
+          <option value="all">All Sizes</option>
+          <option value="large">Large (1000px+)</option>
+          <option value="medium">Medium (500-1000px)</option>
+          <option value="small">Small (<500px)</option>
+        </select>
+        <div class="select-all-container">
+          <input type="checkbox" id="selectAll" />
+          <label for="selectAll">Select All</label>
+        </div>
+      </div>
+
+      <div class="search-filter-section">
+        <input
+          type="text"
+          id="imageSearch"
+          placeholder="Search in fetched images..."
+          class="search-input"
+        />
+        <div class="view-options">
+          <button id="gridView" class="view-btn active">
+            <i class="fas fa-th"></i>
+          </button>
+          <button id="listView" class="view-btn">
+            <i class="fas fa-list"></i>
+          </button>
+        </div>
+        <div class="sort-options">
+          <select id="sortImages" class="sort-select">
+            <option value="size">Sort by Size</option>
+            <option value="dimension">Sort by Dimension</option>
+            <option value="name">Sort by Name</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="progress" class="progress hidden">
+        <div class="loader"></div>
+        <span id="status">Fetching images...</span>
+      </div>
+
+      <div id="stats" class="stats hidden">
+        <span id="imageCount">0 images found</span>
+        <div class="action-buttons">
+          <button id="downloadSelected" class="download-all" disabled>
+            <i class="fas fa-download"></i>
+            Download Selected
+          </button>
+          <button id="downloadAll" class="download-all">
+            <i class="fas fa-download"></i>
+            Download All
+          </button>
+          <button id="exportSelected" class="export-excel" disabled>
+            <i class="fas fa-file-excel"></i>
+            Export Selected
+          </button>
+          <button id="exportExcel" class="export-excel">
+            <i class="fas fa-file-excel"></i>
+            Export All
+          </button>
+        </div>
+      </div>
+
+      <div id="imageGrid"></div>
+
+      <div class="keyboard-shortcuts hidden" id="shortcuts">
+        <h3>Keyboard Shortcuts</h3>
+        <ul>
+          <li><kbd>Space</kbd> Preview image</li>
+          <li><kbd>D</kbd> Download image</li>
+          <li><kbd>C</kbd> Copy URL</li>
+        </ul>
+      </div>
+
+      <div class="image-effects">
+        <button class="effect-btn" data-effect="grayscale">Grayscale</button>
+        <button class="effect-btn" data-effect="sepia">Sepia</button>
+        <button class="effect-btn" data-effect="blur">Blur</button>
+      </div>
+
+      <div class="stats-panel">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>Total Images</h3>
+            <span id="totalImages">0</span>
+          </div>
+          <div class="stat-card">
+            <h3>Total Size</h3>
+            <span id="totalSize">0 KB</span>
+          </div>
+          <div class="stat-card">
+            <h3>Formats</h3>
+            <div id="formatStats"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-features glass">
+        <h3>AI Features</h3>
+        <div class="feature-buttons">
+          <button class="ai-btn" onclick="analyzeImages()">
+            <i class="fas fa-brain"></i> Analyze Content
+          </button>
+          <button class="ai-btn" onclick="detectFacesInImages()">
+            <i class="fas fa-user"></i> Detect Faces
+          </button>
+          <button class="ai-btn" onclick="enhanceImages()">
+            <i class="fas fa-magic"></i> Auto Enhance
+          </button>
+        </div>
+      </div>
+
+      <div class="batch-process glass">
+        <h3>Batch Processing</h3>
+        <div class="process-options">
+          <button class="process-btn" onclick="batchResize()">
+            <i class="fas fa-compress"></i> Resize All
+          </button>
+          <button class="process-btn" onclick="batchWatermark()">
+            <i class="fas fa-copyright"></i> Add Watermark
+          </button>
+          <button class="process-btn" onclick="batchOptimize()">
+            <i class="fas fa-tachometer-alt"></i> Optimize All
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="settingsModal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Settings</h3>
+        <div class="settings-group">
+          <label>
+            <input type="checkbox" id="enableCompression" />
+            Enable image compression
+          </label>
+          <label>
+            <input type="checkbox" id="detectDuplicates" />
+            Detect duplicate images
+          </label>
+          <label>
+            <input type="checkbox" id="saveHistory" />
+            Save download history
+          </label>
+        </div>
+        <div class="settings-group">
+          <label>
+            <input type="checkbox" id="enableColorExtraction" />
+            Enable color extraction
+          </label>
+          <label>
+            <input type="checkbox" id="enableAutoTagging" />
+            Enable auto-tagging
+          </label>
+          <div class="compression-quality">
+            <label>Compression Quality</label>
+            <input
+              type="range"
+              id="compressQuality"
+              min="0.1"
+              max="1"
+              step="0.1"
+              value="0.8"
+            />
+            <span id="qualityValue">80%</span>
+          </div>
+        </div>
+        <button id="saveSettings" class="primary-btn">Save Settings</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button id="bulkRenameBtn" class="tool-btn">
+        <i class="fas fa-signature"></i> Bulk Rename
+      </button>
+      <button id="showFavoritesBtn" class="tool-btn">
+        <i class="fas fa-star"></i> Favorites
+      </button>
+      <button id="showHistoryBtn" class="tool-btn">
+        <i class="fas fa-history"></i> History
+      </button>
+    </div>
+    <div class="floating-btn" id="actionBtn">
+      <i class="fas fa-plus"></i>
+    </div>
+
+    <div class="floating-menu hidden" id="actionMenu">
+      <button class="menu-item" onclick="exportToPDF(getAllImages())">
+        <i class="fas fa-file-pdf"></i> Export as PDF
+      </button>
+      <button class="menu-item" onclick="showCarouselView()">
+        <i class="fas fa-images"></i> Carousel View
+      </button>
+      <button class="menu-item" onclick="showMetadata()">
+        <i class="fas fa-info-circle"></i> Show Metadata
+      </button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="script.js"></script>
+    <script>
+      document.getElementById("downloadSelected").onclick =
+        downloadSelectedImages;
+      document.getElementById("exportSelected").onclick = exportSelectedToExcel;
+    </script>
+  </body>
+</html>
